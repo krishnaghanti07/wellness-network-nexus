@@ -1,6 +1,5 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Hospital } from "@/types/hospital";
+import { Hospital, HospitalCreateInput, HospitalDetailsInput, HospitalUpdateInput } from "@/types/hospital";
 import { toast } from "sonner";
 import {
   getAllHospitals,
@@ -9,10 +8,7 @@ import {
   createHospital,
   updateHospital,
   addHospitalDetails,
-  deleteHospital,
-  HospitalCreateInput,
-  HospitalDetailsInput,
-  HospitalUpdateInput
+  deleteHospital
 } from "@/services/hospitalService";
 
 interface HospitalContextType {
