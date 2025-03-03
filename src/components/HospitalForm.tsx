@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
@@ -24,22 +23,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const formSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
@@ -66,7 +54,6 @@ const HospitalForm: React.FC<HospitalFormProps> = ({
   initialData,
   isEditing = false,
 }) => {
-  const [open, setOpen] = useState(false);
   const [additionalImages, setAdditionalImages] = useState<string[]>(
     initialData?.images || []
   );
@@ -87,7 +74,29 @@ const HospitalForm: React.FC<HospitalFormProps> = ({
     },
   });
 
-  const { control, handleSubmit, formState } = form;
+  const { control, handleSubmit, formState, setValue, watch } = form;
+  const selectedSpecialities = watch("specialities");
+
+  const handleSpecialityToggle = (speciality: string) => {
+    const currentSpecialities = [...selectedSpecialities];
+    const specialityIndex = currentSpecialities.indexOf(speciality);
+    
+    if (specialityIndex > -1) {
+      currentSpecialities.splice(specialityIndex, 1);
+    } else {
+      currentSpecialities.push(speciality);
+    }
+    
+    setValue("specialities", currentSpecialities, { shouldValidate: true });
+  };
+
+  const removeSpeciality = (speciality: string) => {
+    setValue(
+      "specialities",
+      selectedSpecialities.filter((s) => s !== speciality),
+      { shouldValidate: true }
+    );
+  };
 
   const addImage = () => {
     if (newImageUrl && newImageUrl.trim() !== "") {
@@ -173,58 +182,39 @@ const HospitalForm: React.FC<HospitalFormProps> = ({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Specialities</FormLabel>
-              <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                  <FormControl>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={open}
-                      className="w-full justify-between font-normal"
-                    >
-                      {field.value.length > 0
-                        ? `${field.value.length} specialities selected`
-                        : "Select specialities"}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </FormControl>
-                </PopoverTrigger>
-                <PopoverContent className="w-full p-0">
-                  <Command>
-                    <CommandInput placeholder="Search specialities..." />
-                    <CommandEmpty>No speciality found.</CommandEmpty>
-                    <CommandGroup className="max-h-64 overflow-auto">
-                      {availableSpecialities.map((speciality) => (
-                        <CommandItem
-                          key={speciality}
-                          value={speciality}
-                          onSelect={() => {
-                            const newValue = field.value.includes(speciality)
-                              ? field.value.filter((s) => s !== speciality)
-                              : [...field.value, speciality];
-                            field.onChange(newValue);
-                          }}
+              <FormControl>
+                <div className="border border-input rounded-md p-4">
+                  <div className="mb-2 text-sm text-muted-foreground">
+                    Select at least one speciality
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {availableSpecialities.map((speciality) => (
+                      <div key={speciality} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`speciality-${speciality}`}
+                          checked={field.value.includes(speciality)}
+                          onCheckedChange={() => handleSpecialityToggle(speciality)}
+                        />
+                        <label
+                          htmlFor={`speciality-${speciality}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                         >
-                          <Check
-                            className={cn(
-                              "mr-2 h-4 w-4",
-                              field.value.includes(speciality)
-                                ? "opacity-100"
-                                : "opacity-0"
-                            )}
-                          />
                           {speciality}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </FormControl>
               {field.value.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {field.value.map((speciality) => (
-                    <Badge key={speciality} variant="secondary">
+                    <Badge key={speciality} variant="secondary" className="gap-1">
                       {speciality}
+                      <X
+                        className="h-3 w-3 cursor-pointer"
+                        onClick={() => removeSpeciality(speciality)}
+                      />
                     </Badge>
                   ))}
                 </div>
