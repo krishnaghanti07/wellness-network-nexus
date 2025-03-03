@@ -5,10 +5,13 @@ import { ClerkProvider } from "@clerk/clerk-react";
 import App from "./App";
 import "./index.css";
 
-// Get the publishable key from environment variables or use a demo key
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || 
-  // Default demo key for development only - in production, use a real key
-  "pk_test_ZmFzdC1jb2xsaWUtMjkuY2xlcmsuYWNjb3VudHMuZGV2JA";
+// Get the publishable key from environment variables
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+// Throw an error if the key is missing
+if (!PUBLISHABLE_KEY) {
+  throw new Error("Missing Clerk Publishable Key. Add VITE_CLERK_PUBLISHABLE_KEY to your .env file.");
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
