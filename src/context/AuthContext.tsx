@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, ReactNode } from "react";
+import React, { createContext, useContext, ReactNode, useState, useEffect } from "react";
 import { useUser, useClerk } from "@clerk/clerk-react";
 
 interface AuthContextType {
@@ -8,6 +8,7 @@ interface AuthContextType {
   userFullName: string | null;
   isAdmin: boolean;
   signOut: () => Promise<void>;
+  isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -25,8 +26,16 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn, user, isLoaded } = useUser();
   const { signOut } = useClerk();
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    // Set loading to false once Clerk is loaded
+    if (isLoaded) {
+      setIsLoading(false);
+    }
+  }, [isLoaded]);
   
   // For simplicity, we'll consider users with specific emails as admins
   // In a real app, this would come from a database or claims
@@ -36,9 +45,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value = {
     isSignedIn: isSignedIn || false,
     userId: user?.id || null,
-    userFullName: user ? `${user.firstName} ${user.lastName}` : null,
+    userFullName: user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username || null : null,
     isAdmin,
-    signOut
+    signOut,
+    isLoading
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

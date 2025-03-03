@@ -4,26 +4,27 @@ import { pipeline } from "@huggingface/transformers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Send, Bot } from "lucide-react";
 import { useHospitals } from "@/context/HospitalContext";
+import { toast } from "sonner";
 
 const QnABot: React.FC = () => {
   const [query, setQuery] = useState("");
-  const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [modelLoading, setModelLoading] = useState(true);
   const [history, setHistory] = useState<{ question: string; answer: string }[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const questionerRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { hospitals } = useHospitals();
+  const modelLoadAttempted = useRef(false);
 
   // Build context from hospital data
   const buildContext = () => {
     return hospitals.map(hospital => {
       return `Hospital Name: ${hospital.name}
 Location: ${hospital.city}
-Specialities: ${hospital.specialities?.join(", ")}
+Specialities: ${(hospital.specialities || []).join(", ")}
 Rating: ${hospital.rating}
 Description: ${hospital.description || "No description available"}
 Number of Doctors: ${hospital.numberOfDoctors || "Information not available"}
@@ -34,20 +35,35 @@ Number of Departments: ${hospital.numberOfDepartments || "Information not availa
 
   useEffect(() => {
     const loadModel = async () => {
+      if (modelLoadAttempted.current) return;
+      
+      modelLoadAttempted.current = true;
       try {
+        console.log("Loading QA model...");
+        setModelLoading(true);
+        setError(null);
+        
         questionerRef.current = await pipeline(
           "question-answering",
           "Xenova/distilbert-base-uncased-distilled-squad",
           { device: "cpu" }
         );
+        
+        console.log("QA model loaded successfully");
         setModelLoading(false);
       } catch (error) {
-        console.error("Error loading model:", error);
+        console.error("Error loading QA model:", error);
+        setError("Failed to load the question answering model. Please try refreshing the page.");
         setModelLoading(false);
       }
     };
 
-    loadModel();
+    // Delay model loading slightly to allow the UI to render first
+    const timer = setTimeout(() => {
+      loadModel();
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -64,7 +80,16 @@ Number of Departments: ${hospital.numberOfDepartments || "Information not availa
     setIsLoading(true);
 
     try {
+      if (!questionerRef.current) {
+        throw new Error("Model not loaded yet");
+      }
+
       const context = buildContext();
+      
+      if (!context.trim()) {
+        throw new Error("No hospital data available");
+      }
+
       const result = await questionerRef.current({
         question: userQuestion,
         context: context
@@ -72,20 +97,49 @@ Number of Departments: ${hospital.numberOfDepartments || "Information not availa
 
       // Format the answer or provide a fallback
       let botAnswer = "";
-      if (result.score > 0.1) {
+      if (result && result.score > 0.1) {
         botAnswer = result.answer;
       } else {
         botAnswer = "I don't have enough information to answer that question accurately. Please try asking about our hospitals, specialties, or available services.";
       }
 
-      setAnswer(botAnswer);
       setHistory(prev => [...prev, { question: userQuestion, answer: botAnswer }]);
     } catch (error) {
       console.error("Error generating answer:", error);
-      setAnswer("Sorry, I encountered an error while processing your question. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      toast.error(`Error: ${errorMessage}`);
+      
+      // Still add the error to conversation history
+      setHistory(prev => [...prev, { 
+        question: userQuestion, 
+        answer: "Sorry, I encountered an error while processing your question. Please try again or ask another question." 
+      }]);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleModelRetry = () => {
+    modelLoadAttempted.current = false;
+    setModelLoading(true);
+    const loadModel = async () => {
+      try {
+        console.log("Retrying model load...");
+        questionerRef.current = await pipeline(
+          "question-answering",
+          "Xenova/distilbert-base-uncased-distilled-squad",
+          { device: "cpu" }
+        );
+        setError(null);
+        setModelLoading(false);
+        toast.success("Model loaded successfully!");
+      } catch (error) {
+        console.error("Error reloading model:", error);
+        setError("Failed to load the model. Please try again.");
+        setModelLoading(false);
+      }
+    };
+    loadModel();
   };
 
   return (
@@ -104,6 +158,13 @@ Number of Departments: ${hospital.numberOfDepartments || "Information not availa
               <p className="mt-2 text-muted-foreground">
                 Loading the Q&A model... This may take a few moments.
               </p>
+            </div>
+          ) : error ? (
+            <div className="p-8 text-center">
+              <p className="text-red-500 mb-4">{error}</p>
+              <Button onClick={handleModelRetry}>
+                Retry Loading Model
+              </Button>
             </div>
           ) : (
             <>
